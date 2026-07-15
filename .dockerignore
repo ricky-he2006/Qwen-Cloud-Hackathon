@@ -1,0 +1,13 @@
+**/.git
+**/.env
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+**/node_modules
+frontend/dist
+backend/venv
+.cursor
+*.md
+!docs/deploy-alibaba-cloud.md
+agent-transcripts

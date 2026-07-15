@@ -1,0 +1,36 @@
+services:
+  research-society:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: research-society
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Default: publish on host APP_PORT (80). With nginx profile, set APP_PORT=8000
+    # so only nginx binds public :80 (see docs/deploy-alibaba-cloud.md).
+    ports:
+      - "${APP_PORT:-80}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  # Optional reverse proxy with long timeouts for debates:
+  #   APP_PORT=8000 docker compose --profile nginx up -d
+  nginx:
+    profiles: ["nginx"]
+    image: nginx:1.27-alpine
+    container_name: research-society-nginx
+    restart: unless-stopped
+    depends_on:
+      research-society:
+        condition: service_healthy
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/certs:/etc/nginx/certs:ro

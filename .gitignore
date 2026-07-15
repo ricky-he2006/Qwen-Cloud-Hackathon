@@ -1,0 +1,46 @@
+# Secrets — never commit real keys
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# Keep templates (safe to commit)
+!.env.production.example
+!backend/.env.example
+
+# TLS / deploy secrets
+deploy/certs/*
+!deploy/certs/.gitkeep
+*.pem
+*.key
+
+# Python
+backend/venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+.npm
+*.log
+
+# IDE / OS
+.cursor/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local / misc
+agent-transcripts/
+*.local
