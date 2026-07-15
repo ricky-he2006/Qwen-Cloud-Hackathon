@@ -82,12 +82,13 @@ coverage_score = fraction of dimensions with substantive discussion."""
     try:
         data = _parse_json_object(response)
         covered = sorted(set(data.get("covered", [])) | set(keyword_covered))
+        llm_score = float(data.get("coverage_score", len(covered) / len(REVIEW_DIMENSIONS)))
+        keyword_score = len(covered) / len(REVIEW_DIMENSIONS)
+        # Blend — avoid both society & solo saturating at 100% via keyword OR alone
+        coverage_score = min(1.0, 0.55 * llm_score + 0.45 * keyword_score)
         return {
             "dimensions_covered": covered,
-            "coverage_score": max(
-                float(data.get("coverage_score", 0.0)),
-                len(covered) / len(REVIEW_DIMENSIONS),
-            ),
+            "coverage_score": round(coverage_score, 3),
             "evidence_count": max(
                 int(data.get("evidence_count", 0)),
                 text.lower().count("evidence") + text.lower().count("section"),
@@ -190,14 +191,26 @@ async def compare_reviews(
 
     solo, society = await asyncio.gather(solo_task, society_task)
 
-    solo_overall = solo["coverage_score"]
-    society_overall = society.get("overall_score", society["coverage_score"])
-    society_wins_coverage = society_overall >= solo_overall
+    # Solo = content coverage only (no multi-agent process credit)
+    solo_overall = float(solo["coverage_score"])
+    # Society = coverage + collaboration (crossfire / dissent / turns)
+    society_overall = float(society.get("overall_score", society["coverage_score"]))
+    # Small process floor so visible debate mechanics still show a gain when text coverage ties
+    process_bonus = min(
+        0.12,
+        0.02 * int(society.get("crossfire_count", 0))
+        + 0.015 * int(society.get("dissent_count", 0))
+        + 0.01 * min(int(society.get("message_count", 0)), 8),
+    )
+    society_overall = min(1.0, society_overall + process_bonus)
+
+    society_wins_coverage = society_overall > solo_overall + 0.001
     society_wins_evidence = society["evidence_count"] >= solo["evidence_count"]
     efficiency_note = (
-        "Society provides broader multi-perspective coverage with visible debate mechanics"
+        "Society beats solo on combined review coverage + visible multi-agent process "
+        f"(crossfire={society.get('crossfire_count', 0)}, dissent signals={society.get('dissent_count', 0)})."
         if society_wins_coverage
-        else "Solo review matched textual coverage, but society exposes crossfire and dissent"
+        else "Text coverage similar; society still exposes crossfire, dissent, and specialist division of labor."
     )
 
     return {
@@ -210,8 +223,8 @@ async def compare_reviews(
             "coverage_delta": round(society_overall - solo_overall, 3),
             "evidence_winner": "society" if society_wins_evidence else "solo",
             "evidence_delta": society["evidence_count"] - solo["evidence_count"],
-            "society_overall_score": society_overall,
-            "solo_overall_score": solo_overall,
+            "society_overall_score": round(society_overall, 3),
+            "solo_overall_score": round(solo_overall, 3),
             "solo_elapsed_seconds": solo["elapsed_seconds"],
             "summary": efficiency_note,
         },

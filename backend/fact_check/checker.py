@@ -173,43 +173,58 @@ Return ONLY the search query string, 5-10 words max."""
             })
 
         # Analyze claims from related papers
-        analysis_prompt = f"""Analyze whether this claim is supported, contradicted, or neutral based on related research.
+        analysis_prompt = f"""You are checking external literature corroboration for a claim extracted FROM a paper (not whether the paper "lied").
 
-Claim to verify: "{claim.text}"
+Claim (from the paper under review):
+"{claim.text}"
 
-Related Papers:
-{chr(10).join(f"- [{p['arxiv_id']}] {p['title']}" for p in cross_refs)}
+Related arXiv hits (may be imperfect matches):
+{chr(10).join(f"- [{p['arxiv_id']}] {p['title']}" for p in cross_refs) or "- (none found)"}
 
-Provide analysis with:
-1. Support level (strong/moderate/neutral/contradicting)
-2. Key evidence from related work
-3. Confidence score (0-1)
+Return JSON only:
+{{
+  "status": "corroborated|inconclusive|contradicted",
+  "support_level": "strong|moderate|neutral|contradicting",
+  "confidence": 0.0-1.0,
+  "note": "one sentence why"
+}}
 
-Format as JSON."""
+Rules:
+- Prefer "inconclusive" when related titles are only loosely related — do NOT treat that as a failed fact.
+- Use "corroborated" if related work clearly discusses the same idea / method / result class.
+- Use "contradicted" only with clear opposing evidence.
+- confidence = certainty in THIS assessment, not certainty that the claim is false."""
 
         analysis = await self.llm.generate_async(
             messages=[Message("user", analysis_prompt)],
-            temperature=0.3,
-            max_tokens=800
+            temperature=0.2,
+            max_tokens=400,
         )
 
         result = parse_json_payload(analysis)
         if isinstance(result, dict):
+            status = str(result.get("status") or "").lower()
+            support = str(result.get("support_level") or "neutral").lower()
+            if not status:
+                if support in ("strong", "moderate"):
+                    status = "corroborated"
+                elif support in ("contradicting", "contradicted"):
+                    status = "contradicted"
+                else:
+                    status = "inconclusive"
+            is_verified = status == "corroborated" or support in ("strong", "moderate")
             return VerificationResult(
                 claim=claim.text,
                 claim_id=f"claim_{hash(claim.text) % 10000:04d}",
-                is_verified=result.get("support_level", "neutral")
-                in ["strong", "moderate"],
-                confidence=float(
-                    result.get("confidence_score", result.get("confidence", 0.5))
-                ),
+                is_verified=is_verified,
+                confidence=float(result.get("confidence", result.get("confidence_score", 0.5))),
                 cross_references=cross_refs,
             )
         return VerificationResult(
             claim=claim.text,
             claim_id=f"claim_{hash(claim.text) % 10000:04d}",
             is_verified=False,
-            confidence=0.3,
+            confidence=0.4,
             cross_references=cross_refs,
         )
 

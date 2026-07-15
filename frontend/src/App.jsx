@@ -99,9 +99,11 @@ function App() {
             ...prev,
             round: Math.max(prev.round, data.round_num || 0),
           }));
+          setActiveTab('chat');
         } else if (data.type === 'planning_complete') {
           setAssignments(data.assignments || []);
           setDebateEvents((prev) => [...prev, data]);
+          setActiveTab('chat');
         } else if (data.type === 'consensus_update') {
           setAgreementHistory((prev) => [...prev, data.agreement_level]);
           setDebateStatus((prev) => ({
@@ -470,38 +472,41 @@ function App() {
   const renderFactCheckPanel = () => (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="bg-slate-100 px-4 py-3 border-b">
-        <h2 className="font-semibold text-slate-800">Fact Check Report</h2>
+        <h2 className="font-semibold text-slate-800">Literature Corroboration</h2>
         {factCheckResults && (
           <p className="text-sm text-slate-600">
-            {factCheckResults.claims_verified} of {factCheckResults.total_claims} claims verified
+            {factCheckResults.claims_verified} of {factCheckResults.total_claims} claims corroborated in related work
             {factCheckResults.total_claims > 0 &&
               ` (${Math.round((factCheckResults.claims_verified / factCheckResults.total_claims) * 100)}%)`}
+            {' · '}inconclusive ≠ false
           </p>
         )}
       </div>
       <div className="p-6 space-y-4">
         {factCheckLoading && (
-          <div className="text-center text-slate-500 py-8">Extracting and cross-referencing claims…</div>
+          <div className="text-center text-slate-500 py-8">Extracting claims and checking related literature…</div>
         )}
         {factCheckResults?.results?.length === 0 && !factCheckLoading && (
-          <div className="text-center text-slate-500 py-8">No verifiable claims found in paper sections.</div>
+          <div className="text-center text-slate-500 py-8">No claims found in paper sections.</div>
         )}
         {factCheckResults?.results?.map((result, index) => (
           <div
             key={index}
-            className={`border rounded-lg p-4 ${result.is_verified ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}
+            className={`border rounded-lg p-4 ${
+              result.is_verified ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'
+            }`}
           >
             <span
               className={`inline-block px-2 py-1 rounded text-xs font-bold mb-2 ${
-                result.is_verified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                result.is_verified ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-900'
               }`}
             >
-              {result.is_verified ? 'VERIFIED' : 'UNVERIFIED'} ({(result.confidence * 100).toFixed(0)}%)
+              {result.is_verified ? 'CORROBORATED' : 'INCONCLUSIVE'} · assess {(result.confidence * 100).toFixed(0)}%
             </span>
             <p className="text-sm font-medium mt-2">{result.claim_text}</p>
             {result.cross_references?.length > 0 && (
               <div className="mt-3 pt-3 border-t">
-                <p className="text-xs font-semibold text-slate-500 mb-2">Cross-References:</p>
+                <p className="text-xs font-semibold text-slate-500 mb-2">Related papers checked:</p>
                 <ul className="space-y-1">
                   {result.cross_references.map((ref, i) => (
                     <li key={i} className="text-sm text-slate-700">
@@ -516,6 +521,9 @@ function App() {
             )}
           </div>
         ))}
+        {!factCheckResults && !factCheckLoading && (
+          <div className="text-center text-slate-500 py-12">Run literature check after loading a paper.</div>
+        )}
       </div>
     </div>
   );
@@ -829,15 +837,13 @@ function App() {
           </div>
         )}
 
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2">Hackathon demo script (Track 3)</h3>
-          <ul className="text-sm text-blue-700 space-y-1">
-            <li>1. Load a short paper (arXiv/DOI)</li>
-            <li>2. Concept Map → show key points / takeaways</li>
-            <li>3. Plan Assignments → prove task split</li>
-            <li>4. <strong>Judge Demo</strong> → watch Assignment Board → Chamber (crossfire) → Verdict + Dissent</li>
-            <li>5. Benchmark runs automatically after Judge Demo — call out society vs solo %</li>
-            <li>6. Keep ECS Workbench screenshot + 1–3 min screen recording for Devpost</li>
+        <div className="mt-8 bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <h3 className="font-semibold text-slate-800 mb-2">How it works</h3>
+          <ul className="text-sm text-slate-600 space-y-1">
+            <li>1. Load a paper (URL, DOI, arXiv ID, or search)</li>
+            <li>2. Optionally build a concept map or preview specialist assignments</li>
+            <li>3. Run a debate — agents open, cross-examine, and record dissent</li>
+            <li>4. Review the verdict, then compare society vs a solo reviewer</li>
           </ul>
         </div>
       </main>
