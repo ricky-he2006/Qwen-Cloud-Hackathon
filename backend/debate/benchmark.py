@@ -191,18 +191,22 @@ async def compare_reviews(
 
     solo, society = await asyncio.gather(solo_task, society_task)
 
-    # Solo = content coverage only (no multi-agent process credit)
-    solo_overall = float(solo["coverage_score"])
+    # Solo = content coverage weighted with evidence density penalty
+    coverage_score = float(solo["coverage_score"])
+    paper_word_count = sum(len(v.split()) for v in sections.values() if v) or 500
+    solo_evidence_density = min(1.0, solo["evidence_count"] / max(20, paper_word_count))
+    solo_overall = coverage_score * 0.6 + solo_evidence_density * 0.4
+
     # Society = coverage + collaboration (crossfire / dissent / turns)
     society_overall = float(society.get("overall_score", society["coverage_score"]))
-    # Small process floor so visible debate mechanics still show a gain when text coverage ties
+    # Process floor so visible debate mechanics lift society above the ceiling
     process_bonus = min(
         0.12,
         0.02 * int(society.get("crossfire_count", 0))
         + 0.015 * int(society.get("dissent_count", 0))
         + 0.01 * min(int(society.get("message_count", 0)), 8),
     )
-    society_overall = min(1.0, society_overall + process_bonus)
+    society_overall = society_overall + process_bonus
 
     society_wins_coverage = society_overall > solo_overall + 0.001
     society_wins_evidence = society["evidence_count"] >= solo["evidence_count"]

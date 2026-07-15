@@ -32,7 +32,7 @@ class Settings:
 
     API_BASE_URL: str = os.getenv("API_BASE_URL", "http://localhost:11434/v1")
     API_KEY: str = _resolve_api_key()
-    MODEL_NAME: str = os.getenv("MODEL_NAME", "qwen3.7-plus")
+    MODEL_NAME: str = os.getenv("MODEL_NAME", "qwen3.7-max")
 
     MAX_ROUNDS: int = int(os.getenv("MAX_ROUNDS", "5"))
     CONSENSUS_THRESHOLD: float = float(
